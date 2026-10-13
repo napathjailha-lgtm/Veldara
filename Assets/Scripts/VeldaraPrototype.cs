@@ -155,8 +155,26 @@ public sealed class VeldaraPrototype : MonoBehaviour
         Landmark("OLD MINE",new Vector3(17,0,9),new Color(.25f,.24f,.22f));
         Landmark("VOLCANO CRATER",new Vector3(18,0,-17),new Color(.40f,.17f,.11f));
         Landmark("COLD ANVIL",new Vector3(2,0,-11),new Color(.36f,.32f,.29f));
+        MakeEmberLantern(new Vector3(-10, 1.3f, 14));
+        MakeEmberLantern(new Vector3(-7.5f, 1.3f, 17.5f));
+        MakeEmberLantern(new Vector3(15, 1.2f, -14));
         for(int i=0;i<24;i++){float x=Mathf.Sin(i*7.17f)*25,z=Mathf.Cos(i*4.61f)*25;if(Vector2.Distance(new Vector2(x,z),new Vector2(-12,12))<7)continue;Primitive("Charred Tree",PrimitiveType.Cylinder,new Vector3(x,.65f,z),new Vector3(.18f,.65f,.18f),new Color(.15f,.12f,.12f));Primitive("Basalt Boulder",PrimitiveType.Sphere,new Vector3(x+1.1f,.35f,z+.7f),new Vector3(1.3f,.65f,1),new Color(.24f,.22f,.23f));}
     }
+    private void MakeEmberLantern(Vector3 position)
+    {
+        GameObject post = Primitive("Caldra Ember Lantern Post", PrimitiveType.Cylinder,
+            position + Vector3.down * .45f, new Vector3(.10f, .65f, .10f), new Color(.15f, .12f, .13f));
+        GameObject flame = Primitive("Caldra Ember Lantern", PrimitiveType.Sphere,
+            position + Vector3.up * .25f, new Vector3(.25f, .38f, .25f), new Color(1f, .28f, .045f));
+        SetEmission(flame, new Color(1f, .18f, .025f));
+        Light glow = flame.AddComponent<Light>();
+        glow.type = LightType.Point;
+        glow.color = new Color(1f, .25f, .08f);
+        glow.intensity = .8f;
+        glow.range = 5f;
+        glow.shadows = LightShadows.None;
+    }
+
     private void Landmark(string name,Vector3 p,Color c){Primitive(name+" platform",PrimitiveType.Cylinder,p+Vector3.down*.05f,new Vector3(5,.18f,5),c);GameObject m=Primitive(name+" marker",PrimitiveType.Cube,p+Vector3.up*.9f,new Vector3(1.1f,1.8f,.8f),Color.Lerp(c,Color.white,.15f));m.transform.rotation=Quaternion.Euler(0,25,0);}
     private GameObject Primitive(string name, PrimitiveType type, Vector3 p, Vector3 s, Color c)
     {
@@ -251,7 +269,36 @@ public sealed class VeldaraPrototype : MonoBehaviour
         Collider headCollider = head.GetComponent<Collider>();
         if (headCollider != null) Destroy(headCollider);
     }
-    private void CreateEnemy(string name,int level,Vector3 p,Color c,int hp,int power){GameObject o=Primitive("Wild - "+name,PrimitiveType.Sphere,p+Vector3.up*.65f,Vector3.one*1.25f,c);Enemy e=o.AddComponent<Enemy>();e.species=name;e.level=level;e.hp=e.maxHp=hp;e.power=power;e.color=c;e.home=o.transform.position;e.seed=Random.Range(0f,10f);enemies.Add(e);Child(o.transform,"Eye L",new Vector3(-.23f,.13f,.42f),Vector3.one*.15f,Color.white);Child(o.transform,"Eye R",new Vector3(.23f,.13f,.42f),Vector3.one*.15f,Color.white);}
+    private void CreateEnemy(string name, int level, Vector3 p, Color c, int hp, int power)
+    {
+        GameObject o = Primitive("Wild - " + name, PrimitiveType.Sphere, p + Vector3.up * .65f,
+            new Vector3(1.25f, 1.05f, 1.18f), c);
+        Enemy e = o.AddComponent<Enemy>();
+        e.species = name;
+        e.level = level;
+        e.hp = e.maxHp = hp;
+        e.power = power;
+        e.color = c;
+        e.home = o.transform.position;
+        e.seed = Random.Range(0f, 10f);
+        enemies.Add(e);
+
+        Color accent = Color.Lerp(c, new Color(1f, .60f, .18f), .48f);
+        Child(o.transform, "Eye L", new Vector3(-.23f, .13f, .42f), new Vector3(.17f, .18f, .12f), Color.white);
+        Child(o.transform, "Eye R", new Vector3(.23f, .13f, .42f), new Vector3(.17f, .18f, .12f), Color.white);
+        Child(o.transform, "Pupil L", new Vector3(-.23f, .13f, .49f), Vector3.one * .075f, new Color(.09f, .06f, .05f));
+        Child(o.transform, "Pupil R", new Vector3(.23f, .13f, .49f), Vector3.one * .075f, new Color(.09f, .06f, .05f));
+        Child(o.transform, "Horn L", new Vector3(-.34f, .43f, -.02f), new Vector3(.19f, .30f, .19f), accent);
+        Child(o.transform, "Horn R", new Vector3(.34f, .43f, -.02f), new Vector3(.19f, .30f, .19f), accent);
+        if (name == "Cinder Mite")
+        {
+            Child(o.transform, "Mite Shell", new Vector3(0, -.18f, -.30f), new Vector3(.78f, .24f, .38f), Color.Lerp(c, Color.black, .28f));
+        }
+        if (name == "Concord Siphon")
+        {
+            Child(o.transform, "Siphon Core", new Vector3(0, .02f, .51f), Vector3.one * .28f, new Color(.95f, .10f, .14f));
+        }
+    }
     private void SpawnPartner()
     {
         if (partner != null) Destroy(partner.gameObject);
