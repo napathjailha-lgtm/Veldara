@@ -49,15 +49,23 @@ public sealed class VeldaraPrototype : MonoBehaviour
     private void Start()
     {
         Application.targetFrameRate = 60;
-        RenderSettings.ambientLight = new Color(.38f,.36f,.39f);
-        RenderSettings.fog = true; RenderSettings.fogColor = new Color(.30f,.25f,.24f); RenderSettings.fogDensity = .012f;
-        if (FindAnyObjectByType<Light>() == null) {
-            GameObject sun = new GameObject("Caldra Volcanic Light"); Light l = sun.AddComponent<Light>();
-            l.type = LightType.Directional; l.intensity = 1.15f; l.color = new Color(1f,.76f,.56f);
-            sun.transform.rotation = Quaternion.Euler(48,-32,0);
+        RenderSettings.ambientLight = new Color(.48f, .43f, .39f);
+        RenderSettings.fog = true;
+        RenderSettings.fogColor = new Color(.22f, .16f, .15f);
+        RenderSettings.fogDensity = .008f;
+        if (FindAnyObjectByType<Light>() == null)
+        {
+            GameObject sun = new GameObject("Caldra Volcanic Light");
+            Light l = sun.AddComponent<Light>();
+            l.type = LightType.Directional;
+            l.intensity = 1.35f;
+            l.color = new Color(1f, .72f, .48f);
+            l.shadows = LightShadows.Soft;
+            l.shadowStrength = .65f;
+            sun.transform.rotation = Quaternion.Euler(48, -32, 0);
         }
         BuildWorld();
-        player = Primitive("Tamer",PrimitiveType.Capsule,new Vector3(-3,1,5),new Vector3(.72f,1,.72f),new Color(.28f,.60f,.95f)).transform;
+        player = BuildTamer(new Vector3(-3, 1, 5)).transform;
         MakeNpc("Kaelen Vorr",new Vector3(-11,1,10),new Color(.22f,.40f,.52f));
         MakeNpc("Tessa",new Vector3(-14,1,13),new Color(.67f,.45f,.30f));
         MakeNpc("Pip",new Vector3(-7,1,13),new Color(.73f,.69f,.53f));
@@ -78,8 +86,11 @@ public sealed class VeldaraPrototype : MonoBehaviour
             c.tag = "MainCamera";
             c.AddComponent<AudioListener>();
         }
-        cam.fieldOfView=58; cam.backgroundColor=new Color(.30f,.25f,.26f);
-        SetStatus("DEMO 0 — CALDRA: Find Kaelen at the village forge.");
+        cam.fieldOfView = 52;
+        cam.backgroundColor = new Color(.20f, .13f, .13f);
+        cam.nearClipPlane = .1f;
+        cam.farClipPlane = 180f;
+        SetStatus("CALDRA — Find Kaelen at the village forge.");
     }
     private void Update()
     {
@@ -117,9 +128,27 @@ public sealed class VeldaraPrototype : MonoBehaviour
     }
     private void BuildWorld()
     {
-        Primitive("Caldra Ash Field",PrimitiveType.Cube,new Vector3(0,-.4f,0),new Vector3(64,.7f,64),new Color(.30f,.27f,.27f));
+        GameObject ground = Primitive("Caldra Ash Field", PrimitiveType.Cube, new Vector3(0, -.4f, 0), new Vector3(64, .7f, 64), new Color(.24f, .21f, .22f));
+        SetSurface(ground, .08f, new Color(.24f, .21f, .22f));
+        for (int i = 0; i < 22; i++)
+        {
+            float x = Mathf.Sin(i * 8.13f) * 26f;
+            float z = Mathf.Cos(i * 5.71f) * 26f;
+            if (Vector2.Distance(new Vector2(x, z), new Vector2(-12, 12)) < 8f) continue;
+            GameObject shard = Primitive("Obsidian Shard", PrimitiveType.Cube,
+                new Vector3(x, .22f, z), new Vector3(.18f, Random.Range(.35f, .8f), .18f),
+                new Color(.16f, .12f, .13f));
+            shard.transform.rotation = Quaternion.Euler(Random.Range(-12, 12), Random.Range(0, 180), Random.Range(-12, 12));
+        }
         for(int i=0;i<40;i++){float a=i*Mathf.PI*2/40;GameObject r=Primitive("Basalt Ridge",PrimitiveType.Sphere,new Vector3(Mathf.Cos(a)*31,1,Mathf.Sin(a)*31),new Vector3(Random.Range(2f,4f),Random.Range(2f,5f),Random.Range(2f,4f)),new Color(.19f,.18f,.19f));r.transform.rotation=Quaternion.Euler(Random.Range(-12,12),Random.Range(0,180),Random.Range(-12,12));}
-        for(int i=0;i<9;i++){float z=-22+i*5.3f;Primitive("Lava Fissure",PrimitiveType.Cube,new Vector3(-14,.015f,z),new Vector3(.16f,.035f,3.5f),new Color(1,.20f,.025f));Primitive("Lava Fissure",PrimitiveType.Cube,new Vector3(17,.02f,z+1.5f),new Vector3(.12f,.04f,2.8f),new Color(1,.29f,.04f));}
+        for (int i = 0; i < 9; i++)
+        {
+            float z = -22 + i * 5.3f;
+            GameObject fissureA = Primitive("Lava Fissure", PrimitiveType.Cube, new Vector3(-14, .015f, z), new Vector3(.16f, .035f, 3.5f), new Color(1, .20f, .025f));
+            GameObject fissureB = Primitive("Lava Fissure", PrimitiveType.Cube, new Vector3(17, .02f, z + 1.5f), new Vector3(.12f, .04f, 2.8f), new Color(1, .29f, .04f));
+            SetEmission(fissureA, new Color(1f, .10f, .015f));
+            SetEmission(fissureB, new Color(1f, .18f, .02f));
+        }
         Landmark("CALDRA VILLAGE",new Vector3(-12,0,12),new Color(.42f,.25f,.18f));
         Landmark("THE OLD FORGE",new Vector3(-9,0,17),new Color(.24f,.21f,.22f));
         Primitive("Forge Ember",PrimitiveType.Sphere,new Vector3(-9,1.3f,17),Vector3.one*.8f,new Color(1,.24f,.025f));
@@ -129,22 +158,124 @@ public sealed class VeldaraPrototype : MonoBehaviour
         for(int i=0;i<24;i++){float x=Mathf.Sin(i*7.17f)*25,z=Mathf.Cos(i*4.61f)*25;if(Vector2.Distance(new Vector2(x,z),new Vector2(-12,12))<7)continue;Primitive("Charred Tree",PrimitiveType.Cylinder,new Vector3(x,.65f,z),new Vector3(.18f,.65f,.18f),new Color(.15f,.12f,.12f));Primitive("Basalt Boulder",PrimitiveType.Sphere,new Vector3(x+1.1f,.35f,z+.7f),new Vector3(1.3f,.65f,1),new Color(.24f,.22f,.23f));}
     }
     private void Landmark(string name,Vector3 p,Color c){Primitive(name+" platform",PrimitiveType.Cylinder,p+Vector3.down*.05f,new Vector3(5,.18f,5),c);GameObject m=Primitive(name+" marker",PrimitiveType.Cube,p+Vector3.up*.9f,new Vector3(1.1f,1.8f,.8f),Color.Lerp(c,Color.white,.15f));m.transform.rotation=Quaternion.Euler(0,25,0);}
-    private GameObject Primitive(string name,PrimitiveType type,Vector3 p,Vector3 s,Color c){GameObject o=GameObject.CreatePrimitive(type);o.name=name;o.transform.position=p;o.transform.localScale=s;Renderer r=o.GetComponent<Renderer>();if(r!=null){r.material.color=c;r.material.SetFloat("_Smoothness",.12f);}return o;}
+    private GameObject Primitive(string name, PrimitiveType type, Vector3 p, Vector3 s, Color c)
+    {
+        GameObject o = GameObject.CreatePrimitive(type);
+        o.name = name;
+        o.transform.position = p;
+        o.transform.localScale = s;
+        Renderer r = o.GetComponent<Renderer>();
+        if (r != null) SetSurface(o, .18f, c);
+        return o;
+    }
+
+    private void SetSurface(GameObject target, float smoothness, Color color)
+    {
+        Renderer r = target != null ? target.GetComponent<Renderer>() : null;
+        if (r == null) return;
+        Material m = r.material;
+        m.color = color;
+        if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
+        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", .08f);
+    }
+
+    private void SetEmission(GameObject target, Color color)
+    {
+        Renderer r = target != null ? target.GetComponent<Renderer>() : null;
+        if (r == null) return;
+        Material m = r.material;
+        m.EnableKeyword("_EMISSION");
+        if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", color * 1.8f);
+    }
+
+    private GameObject BuildTamer(Vector3 position)
+    {
+        GameObject root = new GameObject("Tamer");
+        root.transform.position = position;
+        GameObject body = Primitive("Tamer - Ash-blue coat", PrimitiveType.Capsule, Vector3.zero,
+            new Vector3(.62f, .72f, .58f), new Color(.19f, .38f, .57f));
+        body.transform.SetParent(root.transform, false);
+        body.transform.localPosition = new Vector3(0, .05f, 0);
+        Collider bodyCollider = body.GetComponent<Collider>();
+        if (bodyCollider != null) Destroy(bodyCollider);
+
+        GameObject head = Primitive("Tamer - Face", PrimitiveType.Sphere, Vector3.zero,
+            new Vector3(.43f, .43f, .4f), new Color(.72f, .49f, .35f));
+        head.transform.SetParent(root.transform, false);
+        head.transform.localPosition = new Vector3(0, .91f, .04f);
+        Collider headCollider = head.GetComponent<Collider>();
+        if (headCollider != null) Destroy(headCollider);
+
+        GameObject hair = Primitive("Tamer - Dark hair", PrimitiveType.Sphere, Vector3.zero,
+            new Vector3(.46f, .23f, .43f), new Color(.12f, .10f, .12f));
+        hair.transform.SetParent(root.transform, false);
+        hair.transform.localPosition = new Vector3(0, 1.08f, -.025f);
+        Collider hairCollider = hair.GetComponent<Collider>();
+        if (hairCollider != null) Destroy(hairCollider);
+
+        GameObject scarf = Primitive("Tamer - Ember scarf", PrimitiveType.Cube, Vector3.zero,
+            new Vector3(.52f, .12f, .48f), new Color(.94f, .30f, .12f));
+        scarf.transform.SetParent(root.transform, false);
+        scarf.transform.localPosition = new Vector3(0, .62f, .04f);
+        Collider scarfCollider = scarf.GetComponent<Collider>();
+        if (scarfCollider != null) Destroy(scarfCollider);
+
+        GameObject marker = Primitive("Tamer - Shoulder satchel", PrimitiveType.Cube, Vector3.zero,
+            new Vector3(.20f, .24f, .18f), new Color(.52f, .31f, .16f));
+        marker.transform.SetParent(root.transform, false);
+        marker.transform.localPosition = new Vector3(.30f, .42f, -.10f);
+        Collider markerCollider = marker.GetComponent<Collider>();
+        if (markerCollider != null) Destroy(markerCollider);
+
+        CapsuleCollider hitbox = root.AddComponent<CapsuleCollider>();
+        hitbox.center = new Vector3(0, .78f, 0);
+        hitbox.radius = .34f;
+        hitbox.height = 1.56f;
+        return root;
+    }
     private void Child(Transform par,string name,Vector3 p,Vector3 s,Color c){GameObject o=Primitive(name,PrimitiveType.Sphere,Vector3.zero,s,c);o.transform.SetParent(par,false);o.transform.localPosition=p;Collider col=o.GetComponent<Collider>();if(col!=null)Destroy(col);}
-    private void MakeNpc(string name,Vector3 p,Color c){Primitive("NPC - "+name,PrimitiveType.Capsule,p,new Vector3(.75f,1,.75f),c).AddComponent<StoryNpc>().npcName=name;}
+    private void MakeNpc(string name, Vector3 p, Color c)
+    {
+        GameObject root = Primitive("NPC - " + name, PrimitiveType.Capsule, p, new Vector3(.72f, 1f, .72f), c);
+        root.AddComponent<StoryNpc>().npcName = name;
+        GameObject sash = Primitive("NPC - " + name + " sash", PrimitiveType.Cube, Vector3.zero,
+            new Vector3(.55f, .10f, .50f), Color.Lerp(c, new Color(1f, .58f, .25f), .45f));
+        sash.transform.SetParent(root.transform, false);
+        sash.transform.localPosition = new Vector3(0, .28f, .02f);
+        Collider sashCollider = sash.GetComponent<Collider>();
+        if (sashCollider != null) Destroy(sashCollider);
+        GameObject head = Primitive("NPC - " + name + " head", PrimitiveType.Sphere, Vector3.zero,
+            new Vector3(.42f, .38f, .40f), new Color(.68f, .47f, .34f));
+        head.transform.SetParent(root.transform, false);
+        head.transform.localPosition = new Vector3(0, .88f, .02f);
+        Collider headCollider = head.GetComponent<Collider>();
+        if (headCollider != null) Destroy(headCollider);
+    }
     private void CreateEnemy(string name,int level,Vector3 p,Color c,int hp,int power){GameObject o=Primitive("Wild - "+name,PrimitiveType.Sphere,p+Vector3.up*.65f,Vector3.one*1.25f,c);Enemy e=o.AddComponent<Enemy>();e.species=name;e.level=level;e.hp=e.maxHp=hp;e.power=power;e.color=c;e.home=o.transform.position;e.seed=Random.Range(0f,10f);enemies.Add(e);Child(o.transform,"Eye L",new Vector3(-.23f,.13f,.42f),Vector3.one*.15f,Color.white);Child(o.transform,"Eye R",new Vector3(.23f,.13f,.42f),Vector3.one*.15f,Color.white);}
     private void SpawnPartner()
     {
         if (partner != null) Destroy(partner.gameObject);
         MonsterData active = ActiveMonster;
         GameObject o = Primitive("Partner - " + active.species, PrimitiveType.Sphere,
-            player.position + new Vector3(-1, 0, -1), Vector3.one * .85f, active.color);
+            player.position + new Vector3(-1, 0, -1), new Vector3(.88f, .78f, .82f), active.color);
         partner = o.transform;
-        Child(partner, "Ember Core", new Vector3(0, .05f, .38f), Vector3.one * .24f, new Color(1, .82f, .22f));
-        Child(partner, "Eye L", new Vector3(-.2f, .14f, .34f), Vector3.one * .12f, Color.white);
-        Child(partner, "Eye R", new Vector3(.2f, .14f, .34f), Vector3.one * .12f, Color.white);
         Collider col = o.GetComponent<Collider>();
         if (col != null) Destroy(col);
+
+        Child(partner, "Ember Core", new Vector3(0, .02f, .37f), Vector3.one * .27f, new Color(1, .82f, .22f));
+        Child(partner, "Eye L", new Vector3(-.20f, .16f, .34f), Vector3.one * .13f, Color.white);
+        Child(partner, "Eye R", new Vector3(.20f, .16f, .34f), Vector3.one * .13f, Color.white);
+        Child(partner, "Pupil L", new Vector3(-.20f, .16f, .455f), Vector3.one * .055f, new Color(.12f, .08f, .06f));
+        Child(partner, "Pupil R", new Vector3(.20f, .16f, .455f), Vector3.one * .055f, new Color(.12f, .08f, .06f));
+        Child(partner, "Ear L", new Vector3(-.34f, .38f, .02f), new Vector3(.22f, .26f, .20f), Color.Lerp(active.color, Color.black, .18f));
+        Child(partner, "Ear R", new Vector3(.34f, .38f, .02f), new Vector3(.22f, .26f, .20f), Color.Lerp(active.color, Color.black, .18f));
+        GameObject crest = Primitive("Partner - Ember crest", PrimitiveType.Sphere, Vector3.zero,
+            new Vector3(.18f, .30f, .16f), new Color(1f, .52f, .12f));
+        crest.transform.SetParent(partner, false);
+        crest.transform.localPosition = new Vector3(0, .48f, -.02f);
+        Collider crestCollider = crest.GetComponent<Collider>();
+        if (crestCollider != null) Destroy(crestCollider);
+        SetEmission(crest, new Color(1f, .25f, .035f));
     }
     private Enemy NearestEnemy(float range){Enemy best=null;float dBest=range;foreach(Enemy e in enemies){if(e==null||e.dead)continue;float d=Vector3.Distance(player.position,e.transform.position);if(d<dBest){best=e;dBest=d;}}return best;}
     private void Attack()
@@ -343,6 +474,50 @@ public sealed class VeldaraPrototype : MonoBehaviour
     if(GUI.Button(new Rect(Screen.width-152,280,124,28),"Switch [Tab]",button))SwitchActiveMonster();
     if(showDialogue){float y=Screen.height-152;GUI.Box(new Rect(14,y,Mathf.Min(Screen.width-28,760),136),GUIContent.none,panel);GUI.Label(new Rect(30,y+8,700,24),speaker,title);GUI.Label(new Rect(30,y+36,Mathf.Min(Screen.width-60,700),62),dialogue,body);if(GUI.Button(new Rect(30,y+99,110,27),"Close [Esc]",button))showDialogue=false;}if(Time.time<statusUntil){GUI.Box(new Rect(Screen.width*.30f,Screen.height-46,Screen.width*.40f,34),GUIContent.none,panel);GUI.Label(new Rect(Screen.width*.30f+10,Screen.height-41,Screen.width*.40f-20,25),status,small);}if(flash>0)GUI.Box(new Rect(0,0,Screen.width,Screen.height),GUIContent.none,new GUIStyle{normal={background=Tex(new Color(.8f,.05f,.02f,flash*2))}});}
     private void Bar(Rect r,float v,Color c){GUI.Box(r,GUIContent.none);Color old=GUI.color;GUI.color=c;GUI.DrawTexture(new Rect(r.x+2,r.y+2,Mathf.Max(0,(r.width-4)*Mathf.Clamp01(v)),r.height-4),Texture2D.whiteTexture);GUI.color=old;}
-    private void Styles(){if(title!=null)return;title=new GUIStyle(GUI.skin.label){fontSize=15,fontStyle=FontStyle.Bold,normal={textColor=new Color(1,.76f,.37f)}};panel=new GUIStyle(GUI.skin.box){normal={background=Tex(new Color(.035f,.045f,.055f,.91f))}};body=new GUIStyle(GUI.skin.label){fontSize=13,wordWrap=true,normal={textColor=Color.white}};small=new GUIStyle(GUI.skin.label){fontSize=11,wordWrap=true,normal={textColor=new Color(.78f,.83f,.85f)}};button=new GUIStyle(GUI.skin.button){fontSize=11,fontStyle=FontStyle.Bold};}
-    private static Texture2D Tex(Color c){Texture2D t=new Texture2D(1,1);t.SetPixel(0,0,c);t.Apply();return t;}
+    private void Styles()
+    {
+        if (title != null) return;
+        title = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 15,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color(1f, .76f, .37f) }
+        };
+        panel = new GUIStyle(GUI.skin.box)
+        {
+            border = new RectOffset(8, 8, 8, 8),
+            padding = new RectOffset(10, 10, 8, 8),
+            normal = { background = Tex(new Color(.025f, .032f, .045f, .94f), "Veldara Panel") }
+        };
+        body = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 13,
+            wordWrap = true,
+            normal = { textColor = new Color(.95f, .94f, .90f) }
+        };
+        small = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 11,
+            wordWrap = true,
+            normal = { textColor = new Color(.72f, .79f, .82f) }
+        };
+        button = new GUIStyle(GUI.skin.button)
+        {
+            fontSize = 11,
+            fontStyle = FontStyle.Bold,
+            padding = new RectOffset(8, 8, 5, 5),
+            normal = { textColor = new Color(1f, .85f, .63f), background = Tex(new Color(.20f, .10f, .08f, .98f), "Veldara Button") },
+            hover = { textColor = Color.white, background = Tex(new Color(.38f, .17f, .09f, 1f), "Veldara Button Hover") },
+            active = { textColor = Color.white, background = Tex(new Color(.60f, .25f, .08f, 1f), "Veldara Button Active") }
+        };
+    }
+    private static Texture2D Tex(Color c, string textureName = "Veldara UI Texture")
+    {
+        Texture2D t = new Texture2D(1, 1);
+        t.name = textureName;
+        t.hideFlags = HideFlags.HideAndDontSave;
+        t.SetPixel(0, 0, c);
+        t.Apply();
+        return t;
+    }
 }
