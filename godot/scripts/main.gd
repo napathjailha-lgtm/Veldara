@@ -220,7 +220,7 @@ func _build_world() -> void:
 			var offset_x := sin(float(grid_x * 5 + grid_z)) * 1.0
 			var offset_z := cos(float(grid_z * 4 - grid_x)) * 1.0
 			var tree_pos := Vector3(float(grid_x) * 3.8 + offset_x, 0.0, float(grid_z) * 3.8 + offset_z)
-			if abs(tree_pos.x) < 12.0 and tree_pos.z > 7.0 and tree_pos.z < 27.0:
+			if abs(tree_pos.x) < 12.0 and tree_pos.z < -7.0 and tree_pos.z > -27.0:
 				continue
 			var tree_size := 2.4 + float(abs(grid_x * 3 + grid_z * 5) % 4) * 0.42
 			var leaf_tint: Color = [Color(0.13, 0.31, 0.18), Color(0.19, 0.39, 0.21), Color(0.24, 0.40, 0.19)][abs(grid_x + grid_z) % 3]
@@ -436,7 +436,7 @@ func _build_town() -> void:
 	plaza_mat.albedo_color = Color(0.38, 0.39, 0.31)
 	plaza_mat.roughness = 1.0
 	plaza.material_override = plaza_mat
-	plaza.position = Vector3(0.0, 0.03, 17.0)
+	plaza.position = Vector3(0.0, 0.03, -17.0)
 	add_child(plaza)
 	for i in range(12):
 		var tile := MeshInstance3D.new()
@@ -446,17 +446,17 @@ func _build_town() -> void:
 		var tile_mat := StandardMaterial3D.new()
 		tile_mat.albedo_color = Color(0.49, 0.47, 0.37) if i % 2 == 0 else Color(0.43, 0.43, 0.35)
 		tile.material_override = tile_mat
-		tile.position = Vector3(-3.3 + float(i % 4) * 2.2, 0.12, 14.0 + float(i / 4) * 2.2)
+		tile.position = Vector3(-3.3 + float(i % 4) * 2.2, 0.12, -14.0 - float(i / 4) * 2.2)
 		add_child(tile)
-	_add_town_house("ElderHall", Vector3(-7.0, 0.0, 21.0), Color(0.68, 0.48, 0.28), Color(0.36, 0.16, 0.12), 1.25)
-	_add_town_house("Smithy", Vector3(7.0, 0.0, 21.0), Color(0.48, 0.45, 0.39), Color(0.25, 0.28, 0.31), 1.0)
-	_add_town_house("Inn", Vector3(0.0, 0.0, 26.0), Color(0.72, 0.57, 0.35), Color(0.46, 0.20, 0.16), 1.0)
-	_add_npc("Elder Rowan", Vector3(-2.8, 0.0, 14.5), Color(0.60, 0.26, 0.68), "Quest Giver")
-	_add_npc("Mira the Smith", Vector3(3.0, 0.0, 14.5), Color(0.38, 0.42, 0.48), "Blacksmith")
-	_add_npc("Tavi the Guide", Vector3(0.0, 0.0, 19.5), Color(0.20, 0.58, 0.40), "Town Guide")
+	_add_town_house("ElderHall", Vector3(-7.0, 0.0, -21.0), Color(0.68, 0.48, 0.28), Color(0.36, 0.16, 0.12), 1.25)
+	_add_town_house("Smithy", Vector3(7.0, 0.0, -21.0), Color(0.48, 0.45, 0.39), Color(0.25, 0.28, 0.31), 1.0)
+	_add_town_house("Inn", Vector3(0.0, 0.0, -26.0), Color(0.72, 0.57, 0.35), Color(0.46, 0.20, 0.16), 1.0)
+	_add_npc("Elder Rowan", Vector3(-2.8, 0.0, -14.5), Color(0.60, 0.26, 0.68), "Quest Giver")
+	_add_npc("Mira the Smith", Vector3(3.0, 0.0, -14.5), Color(0.38, 0.42, 0.48), "Blacksmith")
+	_add_npc("Tavi the Guide", Vector3(0.0, 0.0, -19.5), Color(0.20, 0.58, 0.40), "Town Guide")
 	# Quest board with a bright marker.
-	_add_box_part(self, "QuestBoard", Vector3(1.0, 1.35, 0.16), Vector3(0.0, 1.0, 12.0), Color(0.34, 0.20, 0.10))
-	_add_box_part(self, "QuestBoardHeader", Vector3(1.18, 0.18, 0.20), Vector3(0.0, 1.72, 12.0), Color(0.88, 0.68, 0.24))
+	_add_box_part(self, "QuestBoard", Vector3(1.0, 1.35, 0.16), Vector3(0.0, 1.0, -12.0), Color(0.34, 0.20, 0.10))
+	_add_box_part(self, "QuestBoardHeader", Vector3(1.18, 0.18, 0.20), Vector3(0.0, 1.72, -12.0), Color(0.88, 0.68, 0.24))
 
 func _add_town_house(house_name: String, house_pos: Vector3, wall_color: Color, roof_color: Color, size_scale: float) -> void:
 	var house := Node3D.new()
