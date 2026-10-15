@@ -1,0 +1,60 @@
+name: Build and deploy Veldara Web
+
+on:
+  push:
+    branches:
+      - feature/godot-25d-rebuild
+    paths:
+      - "godot/**"
+      - ".github/workflows/deploy-godot-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: veldara-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Export Godot for Web
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Import project resources
+        run: godot --headless --path godot --editor --import
+
+      - name: Export Web build
+        run: |
+          mkdir -p godot/build/web
+          godot --headless --path godot --export-release "Web" build/web/index.html
+
+      - name: Add hosting fallback page
+        run: |
+          test -s godot/build/web/index.html
+          cat > godot/build/web/.nojekyll <<'EOF'
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: godot/build/web
+
+  deploy:
+    name: Publish to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
