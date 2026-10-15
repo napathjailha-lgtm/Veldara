@@ -58,7 +58,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	var input_dir := Vector2(
 		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		Input.get_action_strength("move_down") - Input.get_action_strength("move_up")
+		Input.get_action_strength("move_up") - Input.get_action_strength("move_down")
 	)
 	# Camera-relative movement makes directions feel natural from the isometric view.
 	var forward := Vector3(-1.0, 0.0, -1.0).normalized()
