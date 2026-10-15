@@ -23,10 +23,20 @@ var monster_respawn_time := 0.0
 var caught := false
 var evolved := false
 var message_time := 0.0
+var camera_yaw := 0.785398
+var camera_pitch := 0.68
+var camera_distance := 15.0
+var rotating_camera := false
+var quest_stage := 0
+var quest_kills := 0
+var quest_reward_claimed := false
+var bits := 0
+var town_npcs: Array[Node3D] = []
 
 func _ready() -> void:
 	_setup_input()
 	_build_world()
+	_build_town()
 	_build_player()
 	_build_companion()
 	_build_wild_monster()
@@ -46,9 +56,10 @@ func _process(delta: float) -> void:
 	_update_hud()
 	if is_instance_valid(camera) and is_instance_valid(player):
 		var target := player.global_position
-		var camera_offset := Vector3(9.0, 10.0, 9.0)
-		camera.global_position = camera.global_position.lerp(target + camera_offset, minf(1.0, delta * 5.0))
-		camera.look_at(target + Vector3(0.0, 0.8, 0.0), Vector3.UP)
+		var horizontal := camera_distance * cos(camera_pitch)
+		var camera_offset := Vector3(sin(camera_yaw) * horizontal, camera_distance * sin(camera_pitch), cos(camera_yaw) * horizontal)
+		camera.global_position = camera.global_position.lerp(target + camera_offset, minf(1.0, delta * 7.0))
+		camera.look_at(target + Vector3(0.0, 1.0, 0.0), Vector3.UP)
 	if is_instance_valid(companion) and is_instance_valid(player):
 		var follow := player.global_position + Vector3(-1.6, 0.0, 1.2)
 		companion.global_position = companion.global_position.lerp(follow, delta * 4.0)
@@ -74,7 +85,33 @@ func _physics_process(_delta: float) -> void:
 		_try_attack()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("catch_monster"):
+	if event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_RIGHT:
+			rotating_camera = mouse_button.pressed
+			if rotating_camera:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			else:
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			get_viewport().set_input_as_handled()
+			return
+		if mouse_button.pressed and mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP:
+			camera_distance = maxf(7.0, camera_distance - 1.2)
+			get_viewport().set_input_as_handled()
+			return
+		if mouse_button.pressed and mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			camera_distance = minf(26.0, camera_distance + 1.2)
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventMouseMotion and rotating_camera:
+		var motion := event as InputEventMouseMotion
+		camera_yaw -= motion.relative.x * 0.006
+		camera_pitch = clampf(camera_pitch + motion.relative.y * 0.004, 0.22, 1.18)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("interact"):
+		_interact_with_nearest_npc()
+	elif event.is_action_pressed("catch_monster"):
 		_try_catch()
 	elif event.is_action_pressed("attack"):
 		_try_attack()
@@ -93,6 +130,7 @@ func _setup_input() -> void:
 	_add_key_action("catch_monster", KEY_E)
 	_add_key_action("attack", KEY_SPACE)
 	_add_key_action("evolve_monster", KEY_V)
+	_add_key_action("interact", KEY_F)
 	if not InputMap.has_action("attack"):
 		InputMap.add_action("attack")
 	var mouse_attack := InputEventMouseButton.new()
@@ -182,6 +220,8 @@ func _build_world() -> void:
 			var offset_x := sin(float(grid_x * 5 + grid_z)) * 1.0
 			var offset_z := cos(float(grid_z * 4 - grid_x)) * 1.0
 			var tree_pos := Vector3(float(grid_x) * 3.8 + offset_x, 0.0, float(grid_z) * 3.8 + offset_z)
+			if abs(tree_pos.x) < 12.0 and tree_pos.z > 7.0 and tree_pos.z < 27.0:
+				continue
 			var tree_size := 2.4 + float(abs(grid_x * 3 + grid_z * 5) % 4) * 0.42
 			var leaf_tint: Color = [Color(0.13, 0.31, 0.18), Color(0.19, 0.39, 0.21), Color(0.24, 0.40, 0.19)][abs(grid_x + grid_z) % 3]
 			_add_forest_tree(tree_pos, tree_size, leaf_tint)
@@ -254,22 +294,66 @@ func _build_player() -> void:
 	add_child(player)
 	var collision := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
-	shape.radius = 0.38
-	shape.height = 1.6
+	shape.radius = 0.34
+	shape.height = 1.75
 	collision.shape = shape
-	collision.position.y = 0.8
+	collision.position.y = 0.88
 	player.add_child(collision)
-	var body := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.38
-	capsule.height = 1.6
-	body.mesh = capsule
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.25, 0.38, 0.78)
-	body.material_override = mat
-	body.position.y = 0.8
-	player.add_child(body)
+	# Stylized adventurer model: tunic, belt, trousers, boots, arms, face and hair.
+	_add_box_part(player, "Tunic", Vector3(0.62, 0.68, 0.36), Vector3(0.0, 1.08, 0.0), Color(0.18, 0.36, 0.72))
+	_add_box_part(player, "ShoulderCape", Vector3(0.78, 0.20, 0.42), Vector3(0.0, 1.36, 0.03), Color(0.28, 0.58, 0.82))
+	_add_box_part(player, "Belt", Vector3(0.64, 0.11, 0.39), Vector3(0.0, 0.83, -0.01), Color(0.30, 0.17, 0.08))
+	_add_box_part(player, "Trousers", Vector3(0.48, 0.42, 0.31), Vector3(0.0, 0.53, 0.0), Color(0.16, 0.20, 0.29))
+	_add_box_part(player, "LeftBoot", Vector3(0.23, 0.18, 0.34), Vector3(-0.16, 0.12, -0.05), Color(0.12, 0.09, 0.07))
+	_add_box_part(player, "RightBoot", Vector3(0.23, 0.18, 0.34), Vector3(0.16, 0.12, -0.05), Color(0.12, 0.09, 0.07))
+	_add_box_part(player, "LeftArm", Vector3(0.19, 0.56, 0.22), Vector3(-0.42, 1.04, 0.0), Color(0.87, 0.64, 0.43))
+	_add_box_part(player, "RightArm", Vector3(0.19, 0.56, 0.22), Vector3(0.42, 1.04, 0.0), Color(0.87, 0.64, 0.43))
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.25
+	head_mesh.height = 0.48
+	head.mesh = head_mesh
+	head.position = Vector3(0.0, 1.67, 0.0)
+	var skin := StandardMaterial3D.new()
+	skin.albedo_color = Color(0.91, 0.70, 0.49)
+	head.material_override = skin
+	player.add_child(head)
+	var hair := MeshInstance3D.new()
+	var hair_mesh := SphereMesh.new()
+	hair_mesh.radius = 0.265
+	hair_mesh.height = 0.28
+	hair.mesh = hair_mesh
+	hair.position = Vector3(0.0, 1.84, 0.025)
+	var hair_mat := StandardMaterial3D.new()
+	hair_mat.albedo_color = Color(0.20, 0.12, 0.08)
+	hair.material_override = hair_mat
+	player.add_child(hair)
+	var eye_mat := StandardMaterial3D.new()
+	eye_mat.albedo_color = Color(0.025, 0.02, 0.015)
+	for side in [-1.0, 1.0]:
+		var eye := MeshInstance3D.new()
+		var eye_mesh := SphereMesh.new()
+		eye_mesh.radius = 0.035
+		eye_mesh.height = 0.06
+		eye.mesh = eye_mesh
+		eye.material_override = eye_mat
+		eye.position = Vector3(side * 0.085, 1.68, -0.225)
+		player.add_child(eye)
+	_add_box_part(player, "Backpack", Vector3(0.32, 0.40, 0.18), Vector3(0.0, 1.03, 0.25), Color(0.47, 0.25, 0.10))
 	player.position = Vector3.ZERO
+
+func _add_box_part(parent: Node3D, part_name: String, dimensions: Vector3, part_position: Vector3, tint: Color) -> void:
+	var part := MeshInstance3D.new()
+	part.name = part_name
+	var part_mesh := BoxMesh.new()
+	part_mesh.size = dimensions
+	part.mesh = part_mesh
+	var part_material := StandardMaterial3D.new()
+	part_material.albedo_color = tint
+	part_material.roughness = 0.8
+	part.material_override = part_material
+	part.position = part_position
+	parent.add_child(part)
 
 func _build_companion() -> void:
 	companion = _make_creature("Companion", Color(0.9, 0.57, 0.2), 0.8)
@@ -330,33 +414,186 @@ func _make_creature(creature_name: String, tint: Color, scale_value: float) -> N
 
 func _build_camera() -> void:
 	camera = Camera3D.new()
-	camera.name = "IsometricCamera"
-	camera.fov = 45.0
-	camera.position = Vector3(10.0, 12.0, 10.0)
+	camera.name = "OrbitCamera"
+	camera.fov = 48.0
 	add_child(camera)
 	camera.current = true
-	camera.look_at(Vector3.ZERO, Vector3.UP)
+	var target := player.global_position if is_instance_valid(player) else Vector3.ZERO
+	var horizontal := camera_distance * cos(camera_pitch)
+	camera.global_position = target + Vector3(sin(camera_yaw) * horizontal, camera_distance * sin(camera_pitch), cos(camera_yaw) * horizontal)
+	camera.look_at(target + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+
+func _build_town() -> void:
+	# A small welcoming settlement at the edge of the forest.
+	var plaza := MeshInstance3D.new()
+	plaza.name = "TownPlaza"
+	var plaza_mesh := CylinderMesh.new()
+	plaza_mesh.top_radius = 8.0
+	plaza_mesh.bottom_radius = 8.0
+	plaza_mesh.height = 0.12
+	plaza.mesh = plaza_mesh
+	var plaza_mat := StandardMaterial3D.new()
+	plaza_mat.albedo_color = Color(0.38, 0.39, 0.31)
+	plaza_mat.roughness = 1.0
+	plaza.material_override = plaza_mat
+	plaza.position = Vector3(0.0, 0.03, 17.0)
+	add_child(plaza)
+	for i in range(12):
+		var tile := MeshInstance3D.new()
+		var tile_mesh := BoxMesh.new()
+		tile_mesh.size = Vector3(1.25, 0.08, 1.25)
+		tile.mesh = tile_mesh
+		var tile_mat := StandardMaterial3D.new()
+		tile_mat.albedo_color = Color(0.49, 0.47, 0.37) if i % 2 == 0 else Color(0.43, 0.43, 0.35)
+		tile.material_override = tile_mat
+		tile.position = Vector3(-3.3 + float(i % 4) * 2.2, 0.12, 14.0 + float(i / 4) * 2.2)
+		add_child(tile)
+	_add_town_house("ElderHall", Vector3(-7.0, 0.0, 21.0), Color(0.68, 0.48, 0.28), Color(0.36, 0.16, 0.12), 1.25)
+	_add_town_house("Smithy", Vector3(7.0, 0.0, 21.0), Color(0.48, 0.45, 0.39), Color(0.25, 0.28, 0.31), 1.0)
+	_add_town_house("Inn", Vector3(0.0, 0.0, 26.0), Color(0.72, 0.57, 0.35), Color(0.46, 0.20, 0.16), 1.0)
+	_add_npc("Elder Rowan", Vector3(-2.8, 0.0, 14.5), Color(0.60, 0.26, 0.68), "Quest Giver")
+	_add_npc("Mira the Smith", Vector3(3.0, 0.0, 14.5), Color(0.38, 0.42, 0.48), "Blacksmith")
+	_add_npc("Tavi the Guide", Vector3(0.0, 0.0, 19.5), Color(0.20, 0.58, 0.40), "Town Guide")
+	# Quest board with a bright marker.
+	_add_box_part(self, "QuestBoard", Vector3(1.0, 1.35, 0.16), Vector3(0.0, 1.0, 12.0), Color(0.34, 0.20, 0.10))
+	_add_box_part(self, "QuestBoardHeader", Vector3(1.18, 0.18, 0.20), Vector3(0.0, 1.72, 12.0), Color(0.88, 0.68, 0.24))
+
+func _add_town_house(house_name: String, house_pos: Vector3, wall_color: Color, roof_color: Color, size_scale: float) -> void:
+	var house := Node3D.new()
+	house.name = house_name
+	house.position = house_pos
+	house.scale = Vector3.ONE * size_scale
+	add_child(house)
+	_add_box_part(house, "Walls", Vector3(4.0, 2.6, 3.2), Vector3(0.0, 1.3, 0.0), wall_color)
+	_add_box_part(house, "RoofLeft", Vector3(2.5, 0.18, 4.0), Vector3(-0.95, 2.85, 0.0), roof_color)
+	house.get_node("RoofLeft").rotation.z = -0.48
+	_add_box_part(house, "RoofRight", Vector3(2.5, 0.18, 4.0), Vector3(0.95, 2.85, 0.0), roof_color)
+	house.get_node("RoofRight").rotation.z = 0.48
+	_add_box_part(house, "Door", Vector3(0.8, 1.55, 0.12), Vector3(0.0, 0.78, -1.67), Color(0.22, 0.12, 0.07))
+	_add_box_part(house, "WindowLeft", Vector3(0.58, 0.55, 0.08), Vector3(-1.25, 1.55, -1.66), Color(0.35, 0.76, 0.85))
+	_add_box_part(house, "WindowRight", Vector3(0.58, 0.55, 0.08), Vector3(1.25, 1.55, -1.66), Color(0.35, 0.76, 0.85))
+
+func _add_npc(npc_name: String, npc_pos: Vector3, clothing_color: Color, role_text: String) -> void:
+	var npc := Node3D.new()
+	npc.name = npc_name.replace(" ", "")
+	npc.position = npc_pos
+	add_child(npc)
+	_add_box_part(npc, "Body", Vector3(0.58, 0.72, 0.36), Vector3(0.0, 1.0, 0.0), clothing_color)
+	_add_box_part(npc, "Arms", Vector3(0.78, 0.18, 0.22), Vector3(0.0, 1.15, 0.0), clothing_color.lightened(0.1))
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.24
+	head_mesh.height = 0.46
+	head.mesh = head_mesh
+	head.position.y = 1.62
+	var skin := StandardMaterial3D.new()
+	skin.albedo_color = Color(0.88, 0.67, 0.48)
+	head.material_override = skin
+	npc.add_child(head)
+	var hat := MeshInstance3D.new()
+	var hat_mesh := CylinderMesh.new()
+	hat_mesh.top_radius = 0.12
+	hat_mesh.bottom_radius = 0.32
+	hat_mesh.height = 0.18
+	hat.mesh = hat_mesh
+	hat.position.y = 1.89
+	var hat_mat := StandardMaterial3D.new()
+	hat_mat.albedo_color = clothing_color.darkened(0.25)
+	hat.material_override = hat_mat
+	npc.add_child(hat)
+	var tag := Label3D.new()
+	tag.text = npc_name + "\n" + role_text
+	tag.position = Vector3(0.0, 2.35, 0.0)
+	tag.font_size = 32
+	tag.outline_size = 8
+	tag.modulate = Color(1.0, 0.92, 0.65)
+	npc.add_child(tag)
+	town_npcs.append(npc)
+
+func _interact_with_nearest_npc() -> void:
+	var nearest: Node3D = null
+	var nearest_distance := 999.0
+	for npc in town_npcs:
+		if not is_instance_valid(npc):
+			continue
+		var distance := player.global_position.distance_to(npc.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = npc
+	if nearest == null or nearest_distance > 3.6:
+		_show_message("No one nearby. Visit the town plaza north of the forest.")
+		return
+	match nearest.name:
+		"ElderRowan":
+			if quest_stage == 0:
+				quest_stage = 1
+				quest_kills = 0
+				_show_message("Elder Rowan: Defeat 3 wild Cinderlings to protect our town. Quest accepted!")
+			elif quest_stage == 1 and quest_kills < 3:
+				_show_message("Elder Rowan: The forest is still dangerous. Cinderlings defeated: %d/3." % quest_kills)
+			elif quest_stage == 1:
+				quest_stage = 2
+				bits += 100
+				monster_xp += 60
+				while monster_xp >= XP_TO_LEVEL:
+					monster_xp -= XP_TO_LEVEL
+					monster_level += 1
+				_show_message("Quest complete! +60 EXP and +100 bits. Elder Rowan thanks you.")
+			else:
+				_show_message("Elder Rowan: You are a hero of Veldara. More quests are coming soon.")
+		"MiraTheSmith":
+			_show_message("Mira: Bring me stronger monster cores later. For now, practice combat and explore.")
+		_:
+			_show_message("Tavi: Follow the stone path north to the town. Press F near villagers to talk.")
+	_update_hud()
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var panel := PanelContainer.new()
-	panel.position = Vector2(18.0, 18.0)
-	panel.custom_minimum_size = Vector2(420.0, 145.0)
-	layer.add_child(panel)
+	var top_panel := PanelContainer.new()
+	top_panel.anchor_left = 0.015
+	top_panel.anchor_top = 0.02
+	top_panel.anchor_right = 0.34
+	top_panel.anchor_bottom = 0.22
+	layer.add_child(top_panel)
 	var column := VBoxContainer.new()
-	panel.add_child(column)
+	top_panel.add_child(column)
 	hud_label = Label.new()
 	hud_label.add_theme_font_size_override("font_size", 17)
 	column.add_child(hud_label)
 	var controls := Label.new()
-	controls.text = "WASD / Arrows: Move   Space / Left Click: Attack   E: Catch   V: Evolve"
+	controls.text = "WASD Move | Space/Click Attack | E Catch | V Evolve | F Talk\nRight-click drag: Rotate camera | Mouse wheel: Zoom"
+	controls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	controls.add_theme_font_size_override("font_size", 12)
 	column.add_child(controls)
+	var fullscreen_button := Button.new()
+	fullscreen_button.text = "⛶ Fullscreen"
+	fullscreen_button.custom_minimum_size = Vector2(140.0, 38.0)
+	fullscreen_button.anchor_left = 1.0
+	fullscreen_button.anchor_right = 1.0
+	fullscreen_button.offset_left = -160.0
+	fullscreen_button.offset_right = -18.0
+	fullscreen_button.offset_top = 18.0
+	fullscreen_button.offset_bottom = 58.0
+	fullscreen_button.pressed.connect(_toggle_fullscreen)
+	layer.add_child(fullscreen_button)
 	message_label = Label.new()
-	message_label.position = Vector2(18.0, 150.0)
-	message_label.add_theme_font_size_override("font_size", 16)
+	message_label.anchor_left = 0.12
+	message_label.anchor_right = 0.88
+	message_label.anchor_top = 0.78
+	message_label.anchor_bottom = 0.91
+	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	message_label.add_theme_font_size_override("font_size", 21)
+	message_label.add_theme_color_override("font_color", Color(1.0, 0.91, 0.62))
 	layer.add_child(message_label)
+
+func _toggle_fullscreen() -> void:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _try_catch() -> void:
 	if caught:
@@ -388,6 +625,8 @@ func _try_attack() -> void:
 		wild_monster.queue_free()
 		monster_respawn_time = 3.0
 		monster_xp += XP_PER_KILL
+		if quest_stage == 1:
+			quest_kills += 1
 		var levelled_up := false
 		while monster_xp >= XP_TO_LEVEL:
 			monster_xp -= XP_TO_LEVEL
@@ -423,4 +662,5 @@ func _update_hud() -> void:
 	var state := "Wild encounter nearby" if not caught else ("Emberkin (Evolved)" if evolved else "Cinderling")
 	var level_text := "Lv. %d  |  EXP %d/%d" % [monster_level, monster_xp, XP_TO_LEVEL] if caught else "Catch a wild monster to begin"
 	var enemy_text := "Wild Cinderling HP: %d/%d" % [monster_hp, monster_max_hp] if is_instance_valid(wild_monster) else "Wild monster respawning..."
-	hud_label.text = "VELDARA  •  2.5D PROTOTYPE\nCompanion: %s\n%s\n%s" % [state, level_text, enemy_text]
+	var quest_text := "Quest: Speak to Elder Rowan (F)" if quest_stage == 0 else ("Quest: Defeat Cinderlings %d/3" % quest_kills if quest_stage == 1 else "Quest: Cinderling Hunt complete")
+	hud_label.text = "VELDARA  •  FOREST FRONTIER\nCompanion: %s\n%s\n%s\n%s\nBits: %d" % [state, level_text, enemy_text, quest_text, bits]
