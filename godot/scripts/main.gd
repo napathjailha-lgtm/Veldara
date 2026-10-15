@@ -183,7 +183,7 @@ func _build_world() -> void:
 			var offset_z := cos(float(grid_z * 4 - grid_x)) * 1.0
 			var tree_pos := Vector3(float(grid_x) * 3.8 + offset_x, 0.0, float(grid_z) * 3.8 + offset_z)
 			var tree_size := 2.4 + float(abs(grid_x * 3 + grid_z * 5) % 4) * 0.42
-			var leaf_tint := [Color(0.13, 0.31, 0.18), Color(0.19, 0.39, 0.21), Color(0.24, 0.40, 0.19)][abs(grid_x + grid_z) % 3]
+			var leaf_tint: Color = [Color(0.13, 0.31, 0.18), Color(0.19, 0.39, 0.21), Color(0.24, 0.40, 0.19)][abs(grid_x + grid_z) % 3]
 			_add_forest_tree(tree_pos, tree_size, leaf_tint)
 
 	# Fallen logs, stones, and little glowing flowers add foreground detail.
