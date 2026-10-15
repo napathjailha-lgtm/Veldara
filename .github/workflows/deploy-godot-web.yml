@@ -28,6 +28,21 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Install Godot Web export templates
+        run: |
+          set -eu
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          curl --fail --location --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz" \
+            --output /tmp/godot-export-templates.tpz
+          unzip -j -o /tmp/godot-export-templates.tpz \
+            "templates/web_nothreads_debug.zip" \
+            "templates/web_nothreads_release.zip" \
+            -d "$TEMPLATE_DIR"
+          test -s "$TEMPLATE_DIR/web_nothreads_debug.zip"
+          test -s "$TEMPLATE_DIR/web_nothreads_release.zip"
+
       - name: Import project resources
         working-directory: godot
         run: godot --headless --editor --import
