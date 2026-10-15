@@ -28,34 +28,28 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Install download utilities
+        run: |
+          set -eu
+          apt-get update
+          apt-get install -y --no-install-recommends curl unzip
+          command -v curl
+          command -v unzip
+
       - name: Install Godot Web export templates
         run: |
           set -eu
           TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           mkdir -p "$TEMPLATE_DIR"
-          python3 - <<'PY'
-          import os
-          import urllib.request
-          import zipfile
-
-          url = "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"
-          archive = "/tmp/godot-export-templates.tpz"
-          request = urllib.request.Request(url, headers={"User-Agent": "Veldara-Web-Build"})
-          with urllib.request.urlopen(request, timeout=120) as response, open(archive, "wb") as output:
-              output.write(response.read())
-
-          target = os.path.expanduser("~/.local/share/godot/export_templates/4.4.1.stable")
-          with zipfile.ZipFile(archive) as bundle:
-              for name in ("templates/web_nothreads_debug.zip", "templates/web_nothreads_release.zip"):
-                  with bundle.open(name) as source, open(os.path.join(target, os.path.basename(name)), "wb") as output:
-                      output.write(source.read())
-
-          for name in ("web_nothreads_debug.zip", "web_nothreads_release.zip"):
-              path = os.path.join(target, name)
-              if not os.path.isfile(path) or os.path.getsize(path) == 0:
-                  raise SystemExit("Missing or empty export template: " + path)
-          print("Godot Web export templates installed.")
-          PY
+          curl --fail --location --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz" \
+            --output /tmp/godot-export-templates.tpz
+          unzip -j -o /tmp/godot-export-templates.tpz \
+            "templates/web_nothreads_debug.zip" \
+            "templates/web_nothreads_release.zip" \
+            -d "$TEMPLATE_DIR"
+          test -s "$TEMPLATE_DIR/web_nothreads_debug.zip"
+          test -s "$TEMPLATE_DIR/web_nothreads_release.zip"
 
       - name: Import project resources
         working-directory: godot
