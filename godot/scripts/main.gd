@@ -519,7 +519,7 @@ func _build_town() -> void:
 		_add_box_part(town_root, "GateStone_%s" % str(side), Vector3(1.5, 4.5, 1.5), Vector3(side * 4.4, 2.25, -6.0), Color(0.43, 0.43, 0.37))
 		_add_box_part(town_root, "GateBeam_%s" % str(side), Vector3(3.1, 0.42, 0.55), Vector3(side * 4.4, 4.25, -6.0), Color(0.31, 0.20, 0.12))
 		for post_index in range(9):
-			var fence_x := side * (7.0 + float(post_index) * 2.0)
+			var fence_x: float = float(side) * (7.0 + float(post_index) * 2.0)
 			_add_box_part(town_root, "PalisadePost_%s_%d" % [str(side), post_index], Vector3(0.34, 2.5, 0.38), Vector3(fence_x, 1.25, -9.0), Color(0.32, 0.22, 0.13))
 		_add_box_part(town_root, "PalisadeRail_%s" % str(side), Vector3(18.0, 0.22, 0.28), Vector3(side * 15.0, 1.85, -9.0), Color(0.40, 0.27, 0.15))
 
