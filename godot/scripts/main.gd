@@ -71,9 +71,10 @@ func _physics_process(_delta: float) -> void:
 		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
 		Input.get_action_strength("move_up") - Input.get_action_strength("move_down")
 	)
-	# Camera-relative movement makes directions feel natural from the isometric view.
-	var forward := Vector3(-1.0, 0.0, -1.0).normalized()
-	var right := Vector3(1.0, 0.0, -1.0).normalized()
+	# Derive movement axes from the current orbit-camera yaw, so WASD never
+	# changes meaning when the player rotates the camera.
+	var forward := Vector3(-sin(camera_yaw), 0.0, -cos(camera_yaw)).normalized()
+	var right := Vector3(cos(camera_yaw), 0.0, -sin(camera_yaw)).normalized()
 	var direction := (right * input_dir.x + forward * input_dir.y).normalized()
 	player.velocity.x = direction.x * MOVE_SPEED
 	player.velocity.z = direction.z * MOVE_SPEED
