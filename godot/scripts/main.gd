@@ -107,54 +107,146 @@ func _add_key_action(action_name: String, keycode: Key) -> void:
 	InputMap.action_add_event(action_name, event)
 
 func _build_world() -> void:
+	# Soft forest lighting and distant atmospheric fog.
 	var world_env := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_SKY
-	environment.sky = Sky.new()
+	var sky := Sky.new()
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(0.10, 0.22, 0.25)
+	sky_material.sky_horizon_color = Color(0.55, 0.68, 0.55)
+	sky_material.ground_bottom_color = Color(0.08, 0.13, 0.09)
+	sky_material.ground_horizon_color = Color(0.27, 0.37, 0.25)
+	sky.sky_material = sky_material
+	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.58, 0.67, 0.82)
-	environment.ambient_light_energy = 0.65
+	environment.ambient_light_color = Color(0.48, 0.62, 0.43)
+	environment.ambient_light_energy = 0.8
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.47, 0.59, 0.43)
+	environment.fog_density = 0.008
 	world_env.environment = environment
 	add_child(world_env)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-52.0, -30.0, 0.0)
-	sun.light_energy = 1.2
+	sun.rotation_degrees = Vector3(-48.0, -28.0, 0.0)
+	sun.light_color = Color(1.0, 0.91, 0.72)
+	sun.light_energy = 1.25
 	sun.shadow_enabled = true
 	add_child(sun)
 
+	# Mossy forest floor.
 	var floor_body := StaticBody3D.new()
-	floor_body.name = "Ground"
+	floor_body.name = "ForestGround"
 	add_child(floor_body)
 	var floor_mesh := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(80.0, 80.0)
+	plane.size = Vector2(100.0, 100.0)
 	var ground_mat := StandardMaterial3D.new()
-	ground_mat.albedo_color = Color(0.19, 0.31, 0.22)
+	ground_mat.albedo_color = Color(0.16, 0.25, 0.14)
 	ground_mat.roughness = 1.0
 	plane.material = ground_mat
 	floor_mesh.mesh = plane
 	floor_body.add_child(floor_mesh)
 	var floor_collision := CollisionShape3D.new()
 	var floor_shape := BoxShape3D.new()
-	floor_shape.size = Vector3(80.0, 0.2, 80.0)
+	floor_shape.size = Vector3(100.0, 0.2, 100.0)
 	floor_collision.shape = floor_shape
 	floor_collision.position.y = -0.1
 	floor_body.add_child(floor_collision)
 
-	# Simple crystal landmarks give the placeholder map a readable silhouette.
-	for i in range(7):
-		var crystal := MeshInstance3D.new()
-		var mesh := PrismMesh.new()
-		mesh.size = Vector3(0.8, 1.8 + float(i % 3) * 0.5, 0.8)
-		crystal.mesh = mesh
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.15, 0.62, 0.78)
-		mat.emission_enabled = true
-		mat.emission = Color(0.04, 0.24, 0.36)
-		crystal.material_override = mat
-		crystal.position = Vector3(-10.0 + i * 3.5, mesh.size.y * 0.5, -7.0 - (i % 2) * 4.0)
-		add_child(crystal)
+	# Soft patches of moss and leaf litter break up the flat ground color.
+	for i in range(34):
+		var patch := MeshInstance3D.new()
+		var patch_mesh := SphereMesh.new()
+		patch_mesh.radius = 1.0
+		patch_mesh.height = 0.12
+		patch.mesh = patch_mesh
+		var patch_mat := StandardMaterial3D.new()
+		patch_mat.albedo_color = [Color(0.21, 0.30, 0.13), Color(0.12, 0.22, 0.12), Color(0.25, 0.29, 0.15)][i % 3]
+		patch_mat.roughness = 1.0
+		patch.material_override = patch_mat
+		patch.position = Vector3(sin(float(i) * 12.7) * 22.0, 0.015, cos(float(i) * 7.3) * 22.0)
+		patch.scale = Vector3(1.5 + float(i % 4) * 0.35, 0.18, 1.0 + float(i % 3) * 0.4)
+		add_child(patch)
+
+	# Dense but spaced-out trees frame the play area and leave the starting
+	# position and first wild encounter unobstructed.
+	for grid_x in range(-7, 8, 2):
+		for grid_z in range(-7, 8, 2):
+			if abs(grid_x) <= 1 and abs(grid_z) <= 1:
+				continue
+			if (grid_x * 13 + grid_z * 7) % 3 != 0:
+				continue
+			var offset_x := sin(float(grid_x * 5 + grid_z)) * 1.0
+			var offset_z := cos(float(grid_z * 4 - grid_x)) * 1.0
+			var tree_pos := Vector3(float(grid_x) * 3.8 + offset_x, 0.0, float(grid_z) * 3.8 + offset_z)
+			var tree_size := 2.4 + float(abs(grid_x * 3 + grid_z * 5) % 4) * 0.42
+			var leaf_tint := [Color(0.13, 0.31, 0.18), Color(0.19, 0.39, 0.21), Color(0.24, 0.40, 0.19)][abs(grid_x + grid_z) % 3]
+			_add_forest_tree(tree_pos, tree_size, leaf_tint)
+
+	# Fallen logs, stones, and little glowing flowers add foreground detail.
+	for i in range(18):
+		var rock := MeshInstance3D.new()
+		var rock_mesh := SphereMesh.new()
+		rock_mesh.radius = 0.45 + float(i % 3) * 0.15
+		rock_mesh.height = 0.55 + float(i % 2) * 0.15
+		rock.mesh = rock_mesh
+		var rock_mat := StandardMaterial3D.new()
+		rock_mat.albedo_color = [Color(0.28, 0.31, 0.25), Color(0.36, 0.34, 0.27), Color(0.20, 0.28, 0.23)][i % 3]
+		rock_mat.roughness = 1.0
+		rock.material_override = rock_mat
+		rock.position = Vector3(sin(float(i) * 8.1) * 15.0, 0.22, cos(float(i) * 5.4) * 15.0)
+		rock.scale = Vector3(1.0, 0.65, 0.9)
+		add_child(rock)
+
+	for i in range(20):
+		var flower := MeshInstance3D.new()
+		var flower_mesh := SphereMesh.new()
+		flower_mesh.radius = 0.11
+		flower_mesh.height = 0.22
+		flower.mesh = flower_mesh
+		var flower_mat := StandardMaterial3D.new()
+		flower_mat.albedo_color = [Color(0.86, 0.73, 0.34), Color(0.61, 0.78, 0.49), Color(0.65, 0.73, 0.88)][i % 3]
+		flower_mat.emission_enabled = true
+		flower_mat.emission = flower_mat.albedo_color * 0.12
+		flower.material_override = flower_mat
+		flower.position = Vector3(sin(float(i) * 6.7) * 10.0, 0.16, cos(float(i) * 4.9) * 10.0)
+		add_child(flower)
+
+func _add_forest_tree(tree_position: Vector3, tree_size: float, leaf_color: Color) -> void:
+	var tree := Node3D.new()
+	tree.name = "ForestTree"
+	tree.position = tree_position
+	add_child(tree)
+
+	var trunk := MeshInstance3D.new()
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.22 * tree_size / 3.0
+	trunk_mesh.bottom_radius = 0.34 * tree_size / 3.0
+	trunk_mesh.height = tree_size * 1.25
+	trunk.mesh = trunk_mesh
+	var bark := StandardMaterial3D.new()
+	bark.albedo_color = Color(0.25, 0.16, 0.09)
+	bark.roughness = 1.0
+	trunk.material_override = bark
+	trunk.position.y = trunk_mesh.height * 0.5
+	tree.add_child(trunk)
+
+	# Three overlapping crowns create a layered, stylized canopy.
+	for layer_index in range(3):
+		var crown := MeshInstance3D.new()
+		var crown_mesh := SphereMesh.new()
+		crown_mesh.radius = tree_size * (0.46 - float(layer_index) * 0.055)
+		crown_mesh.height = tree_size * (0.78 - float(layer_index) * 0.06)
+		crown.mesh = crown_mesh
+		var foliage := StandardMaterial3D.new()
+		foliage.albedo_color = leaf_color.darkened(float(layer_index) * 0.07)
+		foliage.roughness = 1.0
+		crown.material_override = foliage
+		crown.position = Vector3(0.0, tree_size * (0.92 + float(layer_index) * 0.27), 0.0)
+		tree.add_child(crown)
 
 func _build_player() -> void:
 	player = CharacterBody3D.new()
