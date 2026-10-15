@@ -541,7 +541,7 @@ func _interact_with_nearest_npc() -> void:
 				_show_message("Quest complete! +60 EXP and +100 bits. Elder Rowan thanks you.")
 			else:
 				_show_message("Elder Rowan: You are a hero of Veldara. More quests are coming soon.")
-		"MiraTheSmith":
+		"MiratheSmith":
 			_show_message("Mira: Bring me stronger monster cores later. For now, practice combat and explore.")
 		_:
 			_show_message("Tavi: Follow the stone path north to the town. Press F near villagers to talk.")
